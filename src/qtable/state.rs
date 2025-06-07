@@ -1,6 +1,7 @@
 use std::{env, sync::LazyLock};
 
-pub struct State(usize);
+#[derive(Clone, Copy)]
+pub struct State(pub(super) usize);
 
 impl State {
     pub fn size() -> usize {

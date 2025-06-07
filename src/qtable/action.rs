@@ -1,6 +1,7 @@
 use std::{env, sync::LazyLock};
 
-pub struct Action(usize);
+#[derive(Clone, Copy)]
+pub struct Action(pub(super) usize);
 
 impl Action {
     pub fn size() -> usize {
