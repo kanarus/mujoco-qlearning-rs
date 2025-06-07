@@ -33,16 +33,16 @@ fn main() {
     let mujoco_include = Path::new(&mujoco_home).join("include").to_str().unwrap().to_owned();
     let mujoco_include_mujoco = Path::new(&mujoco_include).join("mujoco").to_str().unwrap().to_owned();
 
-    let wrapper_home = Path::new(&env!("CARGO_MANIFEST_DIR")).join("src").join("mujoco");
-    let wrapper_h = wrapper_home.join("wrapper.h").to_str().unwrap().to_owned();
-    let generated = wrapper_home.join("wrapper.rs").to_str().unwrap().to_owned();
+    let bindgen_home = Path::new(&env!("CARGO_MANIFEST_DIR")).join("src").join("mujoco");
+    let bindgen_h = bindgen_home.join("bindgen.h").to_str().unwrap().to_owned();
+    let bindgen_rs = bindgen_home.join("bindgen.rs").to_str().unwrap().to_owned();
 
-    println!("cargo:rerun-if-changed={wrapper_h}");
+    println!("cargo:rerun-if-changed={bindgen_h}");
     println!("cargo:rustc-link-search={mujoco_lib}");
     println!("cargo:rustc-link-lib=dylib=libmujoco");
 
     bindgen::builder()
-        .header(wrapper_h)
+        .header(bindgen_h)
         .clang_args([format!("-I{mujoco_include}"), format!("-I{mujoco_include_mujoco}")])
         .rustified_enum("_?mjt.+")
         .bitfield_enum("_?mjt.+Bit")
@@ -54,5 +54,5 @@ fn main() {
         .size_t_is_usize(true)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate().expect("Failed to generate bindings")
-        .write_to_file(generated).expect("Failed to write bindings to file");
+        .write_to_file(bindgen_rs).expect("Failed to write bindings to file");
 }
