@@ -31,6 +31,7 @@ fn main() {
     let mujoco_home = env::var("MUJOCO_HOME").expect("MUJOCO_HOME not set");
     let mujoco_lib = Path::new(&mujoco_home).join("lib").to_str().unwrap().to_owned();
     let mujoco_include = Path::new(&mujoco_home).join("include").to_str().unwrap().to_owned();
+    let mujoco_include_mujoco = Path::new(&mujoco_include).join("mujoco").to_str().unwrap().to_owned();
 
     let wrapper_home = Path::new(&env!("CARGO_MANIFEST_DIR")).join("src").join("mujoco");
     let wrapper_h = wrapper_home.join("wrapper.h").to_str().unwrap().to_owned();
@@ -42,7 +43,7 @@ fn main() {
 
     bindgen::builder()
         .header(wrapper_h)
-        .clang_arg(format!("-I{mujoco_include}"))
+        .clang_args([format!("-I{mujoco_include}"), format!("-I{mujoco_include_mujoco}")])
         .rustified_enum("_?mjt.+")
         .bitfield_enum("_?mjt.+Bit")
         .allowlist_type("_?mj.*")
