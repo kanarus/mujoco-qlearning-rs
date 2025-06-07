@@ -80,7 +80,7 @@ impl QTable {
     }
 }
 
-pub trait ActionPlan {
+pub trait Strategy {
     fn determine(qtable: &QTable, state: State) -> Action;
 }
 
@@ -92,8 +92,8 @@ pub struct Update {
 }
 
 impl QTable {
-    pub fn next_action<P: ActionPlan>(&self, state: State) -> Action {
-        P::determine(self, state)
+    pub fn next_action<S: Strategy>(&self, state: State) -> Action {
+        S::determine(self, state)
     }
 
     pub fn update(&mut self, Update {
@@ -112,12 +112,12 @@ impl QTable {
     }
 }
 
-pub mod plan {
-    use super::{ActionPlan, Action, QTable, State};
+pub mod strategy {
+    use super::{Strategy, Action, QTable, State};
     use rand::{Rng, distr::{weighted::WeightedIndex}};
 
     pub struct Explore;
-    impl ActionPlan for Explore {
+    impl Strategy for Explore {
         fn determine(qtable: &QTable, state: State) -> Action {
             let max_action_qvalue = qtable[state].iter().max().unwrap();
             let candidates = qtable[state]
@@ -131,7 +131,7 @@ pub mod plan {
     }
 
     pub struct SoftMax;
-    impl ActionPlan for SoftMax {
+    impl Strategy for SoftMax {
         fn determine(qtable: &QTable, state: State) -> Action {
             let qvalues = &qtable[state];
             let max_action_qvalue = qvalues.iter().max().unwrap();
@@ -148,7 +148,7 @@ pub mod plan {
     }
 
     pub struct EpsilonGreedy;
-    impl ActionPlan for EpsilonGreedy {
+    impl Strategy for EpsilonGreedy {
         fn determine(qtable: &QTable, state: State) -> Action {
             if rand::rng().random_range(0.0..1.0) < qtable.epsilon() {
                 Random::determine(qtable, state)
@@ -159,7 +159,7 @@ pub mod plan {
     }
 
     pub struct Random;
-    impl ActionPlan for Random {
+    impl Strategy for Random {
         fn determine(_qtable: &QTable, _state: State) -> Action {
             let selected_index = rand::rng().random_range(0..Action::size());
             Action::new(selected_index).unwrap()

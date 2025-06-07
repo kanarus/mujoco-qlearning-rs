@@ -1,8 +1,3 @@
-//! based on
-//! 
-//! - <https://github.com/TheButlah/mujoco-rs/blob/f7d110aa3e9c909c351f64bee0564a5d6d1abe4b/mujoco-sys/scripts/gen-bindings.rs>
-//! - <https://github.com/TheButlah/mujoco-rs/blob/f7d110aa3e9c909c351f64bee0564a5d6d1abe4b/mujoco-sys/build.rs>
-
 use std::{env, path::Path};
 
 fn main() {
