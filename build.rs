@@ -4,24 +4,6 @@
 //! - <https://github.com/TheButlah/mujoco-rs/blob/f7d110aa3e9c909c351f64bee0564a5d6d1abe4b/mujoco-sys/build.rs>
 
 use std::{env, path::Path};
-use bindgen::{EnumVariation};//, callbacks::ParseCallbacks};
-
-// #[derive(Debug)]
-// struct EnumPrefixStripperCallbacks;
-// impl ParseCallbacks for EnumPrefixStripperCallbacks {
-//     fn enum_variant_name(
-//         &self,
-//         enum_name: Option<&str>,
-//         original_variant_name: &str,
-//         _variant_value: bindgen::callbacks::EnumVariantValue,
-//     ) -> Option<String> {
-//         let _mjt = enum_name?.strip_prefix("enum _mjt")?;
-// 
-// 
-// 
-//         todo!()
-//     }
-// }
 
 fn main() {
     if option_env!("DOCS_RS").is_some() {
@@ -49,7 +31,7 @@ fn main() {
         .allowlist_type("_?mj.*")
         .allowlist_function("_?mj.*")
         .allowlist_var("_?mj.*")
-        .default_enum_style(EnumVariation::NewType { is_bitfield: false, is_global: false })
+        .default_enum_style(bindgen::EnumVariation::NewType { is_bitfield: false, is_global: false })
         .derive_default(true)
         .size_t_is_usize(true)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
