@@ -6,6 +6,9 @@ authors = ["kanarus <kanarus786@gmail.com>"]
 readme  = "README.md"
 license = "MIT"
 
+[build-dependencies]
+bindgen = "0.71"
+
 [dependencies]
 rand = "0.9"
 serde = { version = "1.0", features = ["derive"] }

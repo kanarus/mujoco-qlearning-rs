@@ -1,0 +1,1 @@
+- require environment variable `MUJOCO_HOME` to be set to path of mujoco directory ( e.g. `~/.mujoco`, `/opt/mujoco`, or something )
