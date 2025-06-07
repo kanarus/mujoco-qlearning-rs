@@ -1,3 +1,5 @@
+mod environment;
+
 use crate::qtable::Action;
 
 pub trait Physics {
@@ -36,4 +38,7 @@ pub trait Task<P: Physics> {
     fn get_reward(&self, physics: &P) -> f64;
 }
 
-
+pub struct ControlEnvironment<P: Physics, T: Task<P>> {
+    pub physics: P,
+    pub task: T,
+}
