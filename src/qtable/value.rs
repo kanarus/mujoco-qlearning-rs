@@ -29,10 +29,6 @@ impl QValue {
         Self::RANGE.contains(&value).then_some(Self(value))
     }
 
-    pub(super) fn random() -> Self {
-        Self(rng().random_range(Self::RANGE))
-    }
-
     pub(super) fn random_collect(size: usize) -> Vec<Self> {
         let uniform = Uniform::try_from(Self::RANGE).unwrap();
         let mut rng = rng();

@@ -1,7 +1,15 @@
 use std::{env, sync::LazyLock};
 
 #[derive(Clone, Copy)]
-pub struct State(pub(super) usize);
+pub struct State(usize);
+
+impl std::ops::Deref for State {
+    type Target = usize;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl State {
     pub fn size() -> usize {
@@ -13,5 +21,9 @@ impl State {
                 .unwrap_or(DEFAULT_SIZE)
         });
         *SIZE
+    }
+
+    pub fn new(index: usize) -> Option<Self> {
+        (index < Self::size()).then_some(Self(index))
     }
 }

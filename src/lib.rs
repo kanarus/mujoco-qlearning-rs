@@ -1,1 +1,1 @@
-mod qtable;
+pub mod qtable;

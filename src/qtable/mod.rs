@@ -64,7 +64,7 @@ impl std::ops::Index<State> for QTable {
     type Output = [QValue];
 
     fn index(&self, state: State) -> &Self::Output {
-        &self.qvalues[state.0]
+        &self.qvalues[*state]
     }
 }
 
@@ -102,12 +102,67 @@ impl QTable {
         reward,
         next_state,
     }: Update) {
-        let current_qvalue = self.qvalues[state.0][action.0];
-        let next_max_qvalue = self.qvalues[next_state.0].iter().max().unwrap().clone();
+        let current_qvalue = self.qvalues[*state][*action];
+        let next_max_qvalue = self.qvalues[*next_state].iter().max().unwrap().clone();
 
-        self.qvalues[state.0][action.0] = QValue::new(
+        self.qvalues[*state][*action] = QValue::new(
             (1. - self.alpha()) * (*current_qvalue)
             + self.alpha() * (reward + self.gamma() * (*next_max_qvalue)),
         ).expect("Invalid Q-value creation");
+    }
+}
+
+pub mod plan {
+    use super::{ActionPlan, Action, QTable, State};
+    use rand::{Rng, distr::{weighted::WeightedIndex}};
+
+    pub struct Explore;
+    impl ActionPlan for Explore {
+        fn determine(qtable: &QTable, state: State) -> Action {
+            let max_action_qvalue = qtable[state].iter().max().unwrap();
+            let candidates = qtable[state]
+                .iter()
+                .enumerate()
+                .filter(|(_, qvalue)| *qvalue == max_action_qvalue)
+                .map(|(index, _)| Action::new(index).unwrap())
+                .collect::<Vec<_>>();
+            candidates[rand::rng().random_range(0..candidates.len())]
+        }
+    }
+
+    pub struct SoftMax;
+    impl ActionPlan for SoftMax {
+        fn determine(qtable: &QTable, state: State) -> Action {
+            let qvalues = &qtable[state];
+            let max_action_qvalue = qvalues.iter().max().unwrap();
+            let softmax_probabilities = {
+                let exp = qvalues.iter()
+                    .map(|q| (**q - **max_action_qvalue).exp())
+                    .collect::<Vec<_>>();
+                let exp_sum = exp.iter().sum::<f64>();
+                exp.iter().map(|&e| e / exp_sum).collect::<Vec<_>>()
+            };
+            let selected_index = rand::rng().sample(WeightedIndex::new(&softmax_probabilities).unwrap());
+            Action::new(selected_index).unwrap()
+        }
+    }
+
+    pub struct EpsilonGreedy;
+    impl ActionPlan for EpsilonGreedy {
+        fn determine(qtable: &QTable, state: State) -> Action {
+            if rand::rng().random_range(0.0..1.0) < qtable.epsilon() {
+                Random::determine(qtable, state)
+            } else {
+                Explore::determine(qtable, state)
+            }
+        }
+    }
+
+    pub struct Random;
+    impl ActionPlan for Random {
+        fn determine(_qtable: &QTable, _state: State) -> Action {
+            let selected_index = rand::rng().random_range(0..Action::size());
+            Action::new(selected_index).unwrap()
+        }
     }
 }
