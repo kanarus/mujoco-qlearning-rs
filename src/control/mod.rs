@@ -1,4 +1,4 @@
-use crate::mujoco::{MjModel, MjData};
+use crate::mujoco::{self, MjModel, MjData};
 
 pub struct Physics {
     mjmodel: MjModel,
@@ -17,6 +17,10 @@ impl Physics {
     /// sets the control signal for the actuators
     pub fn set_control(&mut self, control: impl IntoIterator<Item = f64>) {
         self.mjdata.set_ctrl(control);
+    }
+
+    pub fn foward(&mut self) {
+        mujoco::foward(&self.mjmodel, &mut self.mjdata);
     }
 }
 
@@ -38,13 +42,13 @@ impl Physics {
 
     /// resets the physics to its initial state
     fn reset(&mut self) {
-        todo!()
+        mujoco::reset_data(&self.mjmodel, &mut self.mjdata);
     }
     fn after_reset(&mut self) {
         todo!()
     }
 
-    fn with_reset<F: FnOnce(&mut Self)>(&mut self, f: F) {
+    fn with_reset(&mut self, f: impl FnOnce(&mut Self)) {
         self.reset();
         f(self);
         self.after_reset();

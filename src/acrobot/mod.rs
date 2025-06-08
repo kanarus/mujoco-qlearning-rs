@@ -1,4 +1,4 @@
-use crate::engine::{Physics, Task};
+use crate::control::{Physics, Task};
 
 struct Balance {
     sparse: bool,

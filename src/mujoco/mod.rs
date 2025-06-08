@@ -1,6 +1,10 @@
 #[allow(non_camel_case_types, non_snake_case, non_upper_case_globals)]
 mod bindgen;
 
+pub use bindgen::{
+    mjtDisableBit as DisableBit,
+};
+
 pub struct MjModel {
     mjmodel: bindgen::mjModel,
 }
@@ -8,6 +12,19 @@ pub struct MjModel {
 impl MjModel {
     pub fn nu(&self) -> usize {
         self.mjmodel.nu as usize
+    }
+}
+
+impl MjModel {
+    pub fn with_disable(&mut self, flags: &[DisableBit], f: impl FnOnce(&mut Self)) {
+        let old_bitmask = self.mjmodel.opt.disableflags;
+        let mut new_bitmask = old_bitmask;
+        for flag in flags {
+            new_bitmask |= *flag as i32;
+        }
+        self.mjmodel.opt.disableflags = new_bitmask;
+        f(self);
+        self.mjmodel.opt.disableflags = old_bitmask;
     }
 }
 
@@ -27,6 +44,14 @@ impl MjData {
     }
 }
 
-pub fn action_spec(physics: &MjData) -> () {
+pub fn foward(mjmodel: &MjModel, mjdata: &mut MjData) {
+    unsafe {
+        bindgen::mj_forward(&mjmodel.mjmodel, &mut mjdata.mjdata);
+    }
+}
 
+pub fn reset_data(mjmodel: &MjModel, mjdata: &mut MjData) {
+    unsafe {
+        bindgen::mj_resetData(&mjmodel.mjmodel, &mut mjdata.mjdata);
+    }
 }
