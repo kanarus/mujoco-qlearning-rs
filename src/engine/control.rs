@@ -1,7 +1,10 @@
+use std::marker::PhantomData;
 use super::environment::{Environment, TimeStep, StepType};
-use crate::qtable::Action;
+use crate::mujoco::MjModel;
 
 pub trait Physics {
+    fn model(&self) -> &MjModel;
+
     /// updates the state with repeatetion of `n` steps.
     fn step(&mut self, n: usize);
 
@@ -22,14 +25,23 @@ pub trait Physics {
     }
 }
 
-pub trait Task<P: Physics> {
+#[allow(unused_variables)]
+pub trait Task<A, P: Physics> {
     /// sets the state of the environment at the beginning of each episode
     fn initialize_episode(&mut self, physycs: &mut P);
 
     /// updates the task from the action
-    fn before_step(&mut self, action: Action, physics: &mut P);
+    fn before_step(&mut self, action: A, physics: &mut P);
     /// Optional method to update the task after the physics engine has stepped
-    fn after_step(&mut self, physics: &mut P);
+    fn after_step(&mut self, physics: &mut P) {}
+
+    fn action_spec(&self, physics: &P) -> BoundedArraySpec {
+        let num_actions = physics.model().nu();
+        BoundedArraySpec { shape: [num_actions, 1] }
+    }
+    fn step_spec(&self, physics: &P) -> BoundedArraySpec {
+        unimplemented!("Step spec is not implemented for this task")
+    }
 
     /// returns an observation of the current state
     fn get_observation(&self, physics: &P) -> Vec<f64>;
@@ -39,9 +51,17 @@ pub trait Task<P: Physics> {
     fn get_final_discount(&self, _physics: &P) -> Option<f64> {
         None
     }
+    fn observation_spec(&self, physics: &P) -> BoundedArraySpec {
+        unimplemented!("Observation spec is not implemented for this task")
+    }
 }
 
-pub struct ControlEnvironment<P: Physics, T: Task<P>> {
+pub struct BoundedArraySpec {
+    pub shape: [usize; 2],
+}
+
+pub struct ControlEnvironment<A, P: Physics, T: Task<A, P>> {
+    __action__: PhantomData<A>,
     physics: P,
     task: T,
     n_sub_steps: usize,
@@ -49,13 +69,14 @@ pub struct ControlEnvironment<P: Physics, T: Task<P>> {
     reset_next_step: bool,
 }
 
-impl<P: Physics, T: Task<P>> ControlEnvironment<P, T> {
+impl<A, P: Physics, T: Task<A, P>> ControlEnvironment<A, P, T> {
     pub fn new(physics: P, task: T) -> Self {
         Self::new_with_control_timestamp(1., physics, task)
     }
     pub fn new_with_control_timestamp(control_timestamp: f64, physics: P, task: T) -> Self {
         let n_sub_steps = compute_n_steps(control_timestamp, physics.timestamp());
         Self {
+            __action__: PhantomData,
             physics,
             task,
             n_sub_steps,
@@ -65,7 +86,7 @@ impl<P: Physics, T: Task<P>> ControlEnvironment<P, T> {
     }
 }
 
-impl<P: Physics, T: Task<P>> ControlEnvironment<P, T> {
+impl<A, P: Physics, T: Task<A, P>> ControlEnvironment<A, P, T> {
     pub fn physics(&self) -> &P {
         &self.physics
     }
@@ -79,7 +100,7 @@ impl<P: Physics, T: Task<P>> ControlEnvironment<P, T> {
     }
 }
 
-impl<P: Physics, T: Task<P>> Environment for ControlEnvironment<P, T> {
+impl<A, P: Physics, T: Task<A, P>> Environment<A> for ControlEnvironment<A, P, T> {
     fn reset(&mut self) -> TimeStep {
         self.reset_next_step = false;
         self.step_count = 0;
@@ -93,7 +114,7 @@ impl<P: Physics, T: Task<P>> Environment for ControlEnvironment<P, T> {
         }
     }
 
-    fn step(&mut self, action: Action) -> TimeStep {
+    fn step(&mut self, action: A) -> TimeStep {
         if self.reset_next_step {
             return self.reset();
         }

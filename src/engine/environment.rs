@@ -26,12 +26,12 @@ pub enum StepType {
     Last,
 }
 
-pub trait Environment {
+pub trait Environment<A> {
     /// starts a  sequence and returns the first time step of this sequence
     fn reset(&mut self) -> TimeStep;
 
     /// updates the environment according to the action and returns a new time step
-    fn step(&mut self, action: Action) -> TimeStep;
+    fn step(&mut self, action: A) -> TimeStep;
 
     /// frees resources used by the environment
     fn close(&mut self) {}
