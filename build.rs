@@ -29,6 +29,7 @@ fn main() {
         .default_enum_style(bindgen::EnumVariation::NewType { is_bitfield: false, is_global: false })
         .derive_default(true)
         .size_t_is_usize(true)
+        .raw_line("#![allow(unused, non_camel_case_types, non_snake_case, non_upper_case_globals)]")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate().expect("Failed to generate bindings")
         .write_to_file(bindgen_rs).expect("Failed to write bindings to file");
