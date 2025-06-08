@@ -32,6 +32,12 @@ pub struct MjData {
 }
 
 impl MjData {
+    pub fn time(&self) -> f64 {
+        self.mjdata.time
+    }
+}
+
+impl MjData {
     pub fn set_ctrl(&mut self, ctrl: impl IntoIterator<Item = f64>) {
         let mut ctrl_ptr = self.mjdata.ctrl;
         for c in ctrl {

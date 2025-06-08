@@ -32,7 +32,7 @@ impl Physics {
 
     /// elapsed time in seconds since the start of the physics
     fn time(&self) -> f64 {
-        todo!()
+        self.mjdata.time()
     }
 
     /// current timestamp in seconds
@@ -43,11 +43,17 @@ impl Physics {
     /// resets the physics to its initial state
     fn reset(&mut self) {
         mujoco::reset_data(&self.mjmodel, &mut self.mjdata);
+        self.mjmodel.with_disable(
+            &[mujoco::DisableBit::mjDSBL_ACTUATION],
+            |mjmodel| {mujoco::foward(mjmodel, &mut self.mjdata);}
+        );
     }
     fn after_reset(&mut self) {
-        todo!()
+        self.mjmodel.with_disable(
+            &[mujoco::DisableBit::mjDSBL_ACTUATION],
+            |mjmodel| {mujoco::foward(mjmodel, &mut self.mjdata);}
+        );
     }
-
     fn with_reset(&mut self, f: impl FnOnce(&mut Self)) {
         self.reset();
         f(self);
