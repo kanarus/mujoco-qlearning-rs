@@ -5,62 +5,89 @@ pub struct Physics {
     mjdata: MjData,
 }
 
-impl std::ops::Deref for Physics {
-    type Target = MjModel;
-
-    fn deref(&self) -> &Self::Target {
-        &self.mjmodel
-    }
+macro_rules! collect_property_elements {
+    ($physics:ident: $get_property:ident * $size:ident) => {
+        (0..$physics.model().$size())
+            .map(|i| unsafe {
+                // SAFETY: i < $size
+                $physics.data().$get_property(i)
+            })
+            .collect()
+    };
 }
 
 impl Physics {
-    /// sets the control signal for the actuators
-    pub fn set_control(&mut self, control: impl IntoIterator<Item = f64>) {
-        self.mjdata.set_ctrl(control);
+    pub fn model(&self) -> &MjModel {
+        &self.mjmodel
+    }
+
+    pub fn data(&self) -> &MjData {
+        &self.mjdata
     }
 
     pub fn foward(&mut self) {
         mujoco::foward(&self.mjmodel, &mut self.mjdata);
     }
+
+    pub fn control(&self) -> Vec<f64> {
+        collect_property_elements!(self: get_ctrl * nu)
+    }
+    /// sets the control signal for the actuators
+    pub fn set_control(&mut self, control: impl IntoIterator<Item = f64>) {
+        self.mjdata.set_ctrl(control);
+    }
+
+    pub fn activation(&self) -> Vec<f64> {
+        collect_property_elements!(self: get_act * na)
+    }
+
+    pub fn velocity(&self) -> Vec<f64> {
+        collect_property_elements!(self: get_qvel * nv)
+    }
+
+    pub fn position(&self) -> Vec<f64> {
+        collect_property_elements!(self: get_qpos * nq)
+    }
 }
 
 impl Physics {
     /// updates the state with repeatetion of `n` steps.
-    fn step(&mut self, n: usize) {
-        todo!()
+    pub fn step(&mut self, n: usize) {
+        for _ in 0..n {
+            mujoco::step(&self.mjmodel, &mut self.mjdata);
+        }
     }
 
     /// elapsed time in seconds since the start of the physics
-    fn time(&self) -> f64 {
-        self.mjdata.time()
+    pub fn time(&self) -> f64 {
+        self.data().time()
     }
 
     /// current timestamp in seconds
-    fn timestamp(&self) -> f64 {
-        todo!()
+    pub fn timestamp(&self) -> f64 {
+        self.model().opt().timestamp()
     }
 
     /// resets the physics to its initial state
-    fn reset(&mut self) {
+    pub fn reset(&mut self) {
         mujoco::reset_data(&self.mjmodel, &mut self.mjdata);
         self.mjmodel.with_disable(
             &[mujoco::DisableBit::mjDSBL_ACTUATION],
             |mjmodel| {mujoco::foward(mjmodel, &mut self.mjdata);}
         );
     }
-    fn after_reset(&mut self) {
+    pub fn after_reset(&mut self) {
         self.mjmodel.with_disable(
             &[mujoco::DisableBit::mjDSBL_ACTUATION],
             |mjmodel| {mujoco::foward(mjmodel, &mut self.mjdata);}
         );
     }
-    fn with_reset(&mut self, f: impl FnOnce(&mut Self)) {
+    pub fn with_reset(&mut self, f: impl FnOnce(&mut Self)) {
         self.reset();
         f(self);
         self.after_reset();
     }
 }
-
 
 #[allow(unused_variables)]
 pub trait Task {
@@ -75,7 +102,7 @@ pub trait Task {
     fn after_step(&mut self, physics: &mut Physics) {}
 
     fn action_spec(&self, physics: &Physics) -> BoundedArraySpec {
-        let num_actions = physics.nu();
+        let num_actions = physics.model().nu();
         BoundedArraySpec { shape: [num_actions, 1] }
     }
     fn step_spec(&self, physics: &Physics) -> BoundedArraySpec {
