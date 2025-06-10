@@ -33,7 +33,7 @@ impl Acrobot {
     fn vertical(&self) -> [f64; 2] {
         ["upper_arm", "lower_arm"]
             .map(|name| self.model.object_id_of(mujoco::ObjectType::mjOBJ_BODY, name).unwrap())
-            .map(|id| unsafe {self.data.get_xmat(id, mujoco::Axis3::YZ)})
+            .map(|id| unsafe {self.data.get_xmat(id, mujoco::Axis3::ZZ)})
             /* SAFETY: each `id` is a valid body ID */
     }
 }
