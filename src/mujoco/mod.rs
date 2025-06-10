@@ -198,6 +198,10 @@ impl MjModel {
     }
 }
 
+pub enum Axis2 { X, Y, Z }
+
+pub enum Axis3 { XX, XY, XZ, YX, YY, YZ, ZX, ZY, ZZ }
+
 pub struct MjData {
     mjdata: bindgen::mjData,
 }
@@ -262,9 +266,11 @@ impl MjData {
     /// ] // where N := nbody - 1
     /// ```
     ///
-    /// SAFETY: `index` < corresponded model's `nbody * 9`
-    pub unsafe fn get_xmat(&self, index: usize) -> f64 {
-        unsafe {self.mjdata.xmat.add(index).read()}
+    /// SAFETY: `body_id` is a valid `ObjectId` of type `mjOBJ_BODY`
+    pub unsafe fn get_xmat(&self, body_id: ObjectId, axis: Axis3) -> f64 {
+        let offset = (*body_id) * 9 + axis as usize;
+        // SAFETY: `offset` < corresponded model's `nbody * 9`
+        unsafe {self.mjdata.xmat.add(offset).read()}
     }
 
     /// get one element of the sensor data vector of the MjData by the index
