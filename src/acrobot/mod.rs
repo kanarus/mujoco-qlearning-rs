@@ -34,6 +34,10 @@ impl Acrobot {
             .map(|name| self.model.object_id_of(mujoco::ObjectType::mjOBJ_BODY, name).unwrap())
             .map(|id| self.data.get_xmat(id, mujoco::MatrixComponent::ZZ).unwrap())// `id` is a body id
     }
+
+    fn distance_tip_target(&self) -> f64 {
+
+    }
 }
 
 struct Balance {
