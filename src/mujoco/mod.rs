@@ -126,6 +126,7 @@ impl MjModel {
         };
         (id >= 0).then_some(id as usize)
     }
+    
     pub fn object_name_of(&self, objtype: ObjectType, id: usize) -> Option<String> {
         let c_name_ptr = unsafe {
             bindgen::mj_id2name(

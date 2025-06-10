@@ -1,8 +1,26 @@
 use crate::mujoco::{self, MjModel, MjData};
+use std::ops::{Deref, DerefMut};
 
-pub struct Physics {
-    mjmodel: MjModel,
-    mjdata: MjData,
+pub trait Physics: Deref<Target = BasePhysics> + DerefMut<Target = BasePhysics> {
+    fn new(base: BasePhysics) -> Self;
+
+    /// ```
+    /// {
+    ///     self.reset();
+    ///     f(self);
+    ///     self.after_reset();
+    /// }
+    /// ```
+    fn with_reset(&mut self, f: impl FnOnce(&mut Self)) {
+        self.reset();
+        f(self);
+        self.after_reset();
+    }
+}
+
+pub struct BasePhysics {
+    pub model: MjModel,
+    pub data: MjData,
 }
 
 macro_rules! collect_property_elements {
@@ -15,18 +33,17 @@ macro_rules! collect_property_elements {
             .collect()
     };
 }
-
-impl Physics {
+impl BasePhysics {
     pub fn model(&self) -> &MjModel {
-        &self.mjmodel
+        &self.model
     }
 
     pub fn data(&self) -> &MjData {
-        &self.mjdata
+        &self.data
     }
 
     pub fn foward(&mut self) {
-        mujoco::foward(&self.mjmodel, &mut self.mjdata);
+        mujoco::foward(&self.model, &mut self.data);
     }
 
     pub fn control(&self) -> Vec<f64> {
@@ -34,7 +51,7 @@ impl Physics {
     }
     /// sets the control signal for the actuators
     pub fn set_control(&mut self, control: impl IntoIterator<Item = f64>) {
-        self.mjdata.set_ctrl(control);
+        self.data.set_ctrl(control);
     }
 
     pub fn activation(&self) -> Vec<f64> {
@@ -48,13 +65,11 @@ impl Physics {
     pub fn position(&self) -> Vec<f64> {
         collect_property_elements!(self: get_qpos * nq)
     }
-}
 
-impl Physics {
     /// updates the state with repeatetion of `n` steps.
     pub fn step(&mut self, n: usize) {
         for _ in 0..n {
-            mujoco::step(&self.mjmodel, &mut self.mjdata);
+            mujoco::step(&self.model, &mut self.data);
         }
     }
 
@@ -70,54 +85,54 @@ impl Physics {
 
     /// resets the physics to its initial state
     pub fn reset(&mut self) {
-        mujoco::reset_data(&self.mjmodel, &mut self.mjdata);
-        self.mjmodel.with_disable(
+        mujoco::reset_data(&self.model, &mut self.data);
+        self.model.with_disable(
             &[mujoco::DisableBit::mjDSBL_ACTUATION],
-            |mjmodel| {mujoco::foward(mjmodel, &mut self.mjdata);}
+            |mjmodel| {mujoco::foward(mjmodel, &mut self.data);}
         );
     }
     pub fn after_reset(&mut self) {
-        self.mjmodel.with_disable(
+        self.model.with_disable(
             &[mujoco::DisableBit::mjDSBL_ACTUATION],
-            |mjmodel| {mujoco::foward(mjmodel, &mut self.mjdata);}
+            |mjmodel| {mujoco::foward(mjmodel, &mut self.data);}
         );
     }
-    pub fn with_reset(&mut self, f: impl FnOnce(&mut Self)) {
-        self.reset();
-        f(self);
-        self.after_reset();
-    }
+}
+
+pub trait Action {
+    type Physics: Physics;
 }
 
 #[allow(unused_variables)]
 pub trait Task {
-    type Action;
+    type Physics: Physics;
+    type Action: Action<Physics = Self::Physics>;
 
     /// sets the state of the environment at the beginning of each episode
-    fn initialize_episode(&mut self, physycs: &mut Physics);
+    fn initialize_episode(&mut self, physycs: &mut Self::Physics);
 
     /// updates the task from the action
-    fn before_step(&mut self, action: Self::Action, physics: &mut Physics);
+    fn before_step(&mut self, action: Self::Action, physics: &mut Self::Physics);
     /// Optional method to update the task after the physics engine has stepped
-    fn after_step(&mut self, physics: &mut Physics) {}
+    fn after_step(&mut self, physics: &mut Self::Physics) {}
 
-    fn action_spec(&self, physics: &Physics) -> BoundedArraySpec {
+    fn action_spec(&self, physics: &Self::Physics) -> BoundedArraySpec {
         let num_actions = physics.model().nu();
         BoundedArraySpec { shape: [num_actions, 1] }
     }
-    fn step_spec(&self, physics: &Physics) -> BoundedArraySpec {
+    fn step_spec(&self, physics: &Self::Physics) -> BoundedArraySpec {
         unimplemented!("Step spec is not implemented for this task")
     }
 
     /// returns an observation of the current state
-    fn get_observation(&self, physics: &Physics) -> Vec<f64>;
+    fn get_observation(&self, physics: &Self::Physics) -> Vec<f64>;
     /// returns a reward for the current state
-    fn get_reward(&self, physics: &Physics) -> f64;
+    fn get_reward(&self, physics: &Self::Physics) -> f64;
     /// returns a final discount if the episode should end, otherwise `None`
-    fn get_final_discount(&self, _physics: &Physics) -> Option<f64> {
+    fn get_final_discount(&self, _physics: &Self::Physics) -> Option<f64> {
         None
     }
-    fn observation_spec(&self, physics: &Physics) -> BoundedArraySpec {
+    fn observation_spec(&self, physics: &Self::Physics) -> BoundedArraySpec {
         unimplemented!("Observation spec is not implemented for this task")
     }
 }
@@ -126,9 +141,20 @@ pub struct BoundedArraySpec {
     pub shape: [usize; 2],
 }
 
+pub trait State: Deref<Target = BaseState> + DerefMut<Target = BaseState> {
+    fn new(base: BaseState) -> Self;
+}
+pub struct BaseState {
+    /// in `TimeStep`, this is `None` when `step_type` is `StepType::First`, i.e. at the start of a sequence
+    pub reward: Option<f64>,
+    pub discount: Option<f64>,
+    /// in `TimeStep`, this is `None` when `step_type` is `StepType::First`, i.e. at the start of a sequence
+    pub observation: Vec<f64>,
+}
+
 pub struct Environment<S: State, T: Task> {
     __state__: std::marker::PhantomData<S>,
-    physics: Physics,
+    physics: T::Physics,
     task: T,
     n_sub_steps: usize,
     step_count: usize,
@@ -136,10 +162,10 @@ pub struct Environment<S: State, T: Task> {
 }
 
 impl<S: State, T: Task> Environment<S, T> {
-    pub fn new(physics: Physics, task: T) -> Self {
+    pub fn new(physics: T::Physics, task: T) -> Self {
         Self::new_with_control_timestamp(1., physics, task)
     }
-    pub fn new_with_control_timestamp(control_timestamp: f64, physics: Physics, task: T) -> Self {
+    pub fn new_with_control_timestamp(control_timestamp: f64, physics: T::Physics, task: T) -> Self {
         let n_sub_steps = compute_n_steps(control_timestamp, physics.timestamp());
         Self {
             __state__: std::marker::PhantomData,
@@ -153,7 +179,7 @@ impl<S: State, T: Task> Environment<S, T> {
 }
 
 impl<S: State, T: Task> Environment<S, T> {
-    pub fn physics(&self) -> &Physics {
+    pub fn physics(&self) -> &T::Physics {
         &self.physics
     }
 
@@ -167,14 +193,14 @@ impl<S: State, T: Task> Environment<S, T> {
 }
 
 impl<S: State, T: Task> Environment<S, T> {
-    fn reset(&mut self) -> TimeStep<S> {
+    pub fn reset(&mut self) -> TimeStep<S> {
         self.reset_next_step = false;
         self.step_count = 0;
         self.physics.with_reset(|physics| self.task.initialize_episode(physics));
 
         TimeStep {
             step_type: StepType::First,
-            state: S::from_base(BaseState {
+            state: S::new(BaseState {
                 reward: None,
                 discount: None,
                 observation: self.task.get_observation(&self.physics),
@@ -182,7 +208,7 @@ impl<S: State, T: Task> Environment<S, T> {
         }
     }
 
-    fn step(&mut self, action: T::Action) -> TimeStep<S> {
+    pub fn step(&mut self, action: T::Action) -> TimeStep<S> {
         if self.reset_next_step {
             return self.reset();
         }
@@ -201,7 +227,7 @@ impl<S: State, T: Task> Environment<S, T> {
                 self.reset_next_step = true;
                 TimeStep {
                     step_type: StepType::Last,
-                    state: S::from_base(BaseState {
+                    state: S::new(BaseState {
                         reward: Some(reward),
                         discount: Some(final_discount),
                         observation,
@@ -211,7 +237,7 @@ impl<S: State, T: Task> Environment<S, T> {
             None => {
                 TimeStep {
                     step_type: StepType::Mid,
-                    state: S::from_base(BaseState {
+                    state: S::new(BaseState {
                         reward: Some(reward),
                         discount: Some(1.0),
                         observation,
@@ -251,20 +277,6 @@ pub enum StepType {
     Mid,
     Last,
 }
-pub struct BaseState {
-    /// `None` when `step_type` is `StepType::First`, i.e. at the start of a sequence
-    pub reward: Option<f64>,
-    pub discount: Option<f64>,
-    /// `None` when `step_type` is `StepType::First`, i.e. at the start of a sequence
-    pub observation: Vec<f64>,
-}
-pub trait State {
-    fn from_base(base: BaseState) -> Self;
-    fn reward(&self) -> Option<f64>;
-    fn discount(&self) -> Option<f64>;
-    fn observation(&self) -> &[f64];
-}
-
 impl<S: State> TimeStep<S> {
     fn is_first(&self) -> bool {
         matches!(self.step_type, StepType::First)
