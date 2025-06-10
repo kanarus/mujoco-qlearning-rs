@@ -23,6 +23,21 @@ pub struct PhysicsBase {
     pub data: MjData,
 }
 
+#[derive(Debug)]
+pub enum PhysicsError {
+    SizeNotMatching { expected: usize, actual: usize },
+}
+impl std::fmt::Display for PhysicsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PhysicsError::SizeNotMatching { expected, actual } => {
+                write!(f, "Size not matching: expected {}, got {}", expected, actual)
+            }
+        }
+    }
+}
+impl std::error::Error for PhysicsError {}
+
 macro_rules! collect_property_elements {
     ($physics:ident: $get_property:ident * $size:ident) => {
         (0..$physics.model.$size())
@@ -38,14 +53,23 @@ impl PhysicsBase {
         mujoco::foward(&self.model, &mut self.data);
     }
 
+    /// sets the control signal for the actuators
+    pub fn set_control(&mut self, control: impl IntoIterator<Item = f64>) -> Result<(), PhysicsError> {
+        let control: Vec<f64> = control.into_iter().collect();
+        if control.len() != self.model.nu() {
+            return Err(PhysicsError::SizeNotMatching {
+                expected: self.model.nu(),
+                actual: control.len(),
+            });
+        }
+        // SAFETY: control has the correct size `nu`
+        unsafe { self.data.set_ctrl(control); }
+        Ok(())
+    }
+
     pub fn control(&self) -> Vec<f64> {
         collect_property_elements!(self: get_ctrl * nu)
     }
-    /// sets the control signal for the actuators
-    pub fn set_control(&mut self, control: impl IntoIterator<Item = f64>) {
-        self.data.set_ctrl(control);
-    }
-
     pub fn activation(&self) -> Vec<f64> {
         collect_property_elements!(self: get_act * na)
     }
@@ -95,6 +119,14 @@ pub trait Action {
     type Physics: Physics;
 }
 
+/// ## required
+/// 
+/// - `type Physics`
+/// - `type Action`
+/// - `fn initialize_episode`
+/// - `fn before_step`
+/// - `fn get_observation`
+/// - `fn get_reward`
 #[allow(unused_variables)]
 pub trait Task {
     type Physics: Physics;

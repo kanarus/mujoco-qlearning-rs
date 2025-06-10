@@ -25,16 +25,14 @@ impl Acrobot {
     fn horizontal(&self) -> [f64; 2] {
         ["upper_arm", "lower_arm"]
             .map(|name| self.model.object_id_of(mujoco::ObjectType::mjOBJ_BODY, name).unwrap())
-            .map(|id| unsafe {self.data.get_xmat(id, mujoco::Axis3::XZ)})
-            /* SAFETY: each `id` is a valid body ID */
+            .map(|id| self.data.get_xmat(id, mujoco::MatrixComponent::XZ).unwrap())// `id` is a body id
     }
 
     /// Returns vertical (y) component of body frame z-axes
     fn vertical(&self) -> [f64; 2] {
         ["upper_arm", "lower_arm"]
             .map(|name| self.model.object_id_of(mujoco::ObjectType::mjOBJ_BODY, name).unwrap())
-            .map(|id| unsafe {self.data.get_xmat(id, mujoco::Axis3::ZZ)})
-            /* SAFETY: each `id` is a valid body ID */
+            .map(|id| self.data.get_xmat(id, mujoco::MatrixComponent::ZZ).unwrap())// `id` is a body id
     }
 }
 

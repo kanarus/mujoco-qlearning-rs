@@ -114,42 +114,43 @@ mjmodel_siezs! {
     nbuffer:                    "number of bytes in buffer";
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct ObjectId(usize);
-impl std::ops::Deref for ObjectId {
-    type Target = usize;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ObjectId {
+    type_: ObjectType,
+    index: usize,
 }
 
 impl MjModel {
     pub fn object_id_of(&self, objtype: ObjectType, name: &str) -> Option<ObjectId> {
         let c_name = std::ffi::CString::new(name).ok()?;
-        let id = unsafe {
+        let index = unsafe {
             bindgen::mj_name2id(
                 &self.mjmodel,
                 objtype as i32,
                 c_name.as_ptr()
             )
         };
-        (id >= 0).then_some(ObjectId(id as usize))
+        (index >= 0).then_some(ObjectId {
+            type_: objtype,
+            index: index as usize,
+        })
     }
 
-    pub fn object_name_of(&self, objtype: ObjectType, id: ObjectId) -> Option<String> {
+    pub fn object_name_of(&self, id: ObjectId) -> String {
         let c_name_ptr = unsafe {
             bindgen::mj_id2name(
                 &self.mjmodel,
-                objtype as i32,
-                id.0 as i32
+                id.type_ as i32,
+                id.index as i32
             )
         };
-        if c_name_ptr.is_null() {
-            None
-        } else {
-            unsafe {std::ffi::CStr::from_ptr(c_name_ptr).to_str().ok().map(str::to_string)}
+        #[cfg(debug_assertions)] {
+            assert!(!c_name_ptr.is_null(), "ObjectId {:?} is invalid", id);
         }
+        (unsafe {std::ffi::CStr::from_ptr(c_name_ptr)})
+            .to_str()
+            .expect("Object name is not valid UTF-8")
+            .to_string()
     }
 }
 
@@ -198,9 +199,15 @@ impl MjModel {
     }
 }
 
-pub enum Axis2 { X, Y, Z }
+pub enum Axis {
+    X, Y, Z
+}
 
-pub enum Axis3 { XX, XY, XZ, YX, YY, YZ, ZX, ZY, ZZ }
+pub enum MatrixComponent {
+    XX, XY, XZ,
+    YX, YY, YZ,
+    ZX, ZY, ZZ,
+}
 
 pub struct MjData {
     mjdata: bindgen::mjData,
@@ -211,7 +218,10 @@ impl MjData {
         self.mjdata.time
     }
 
-    pub fn set_ctrl(&mut self, ctrl: impl IntoIterator<Item = f64>) {
+    /// sets the control signal for the actuators
+    ///
+    /// SAFETY: `ctrl` must have length equal to the model's `nu`
+    pub unsafe fn set_ctrl(&mut self, ctrl: impl IntoIterator<Item = f64>) {
         let mut ctrl_ptr = self.mjdata.ctrl;
         for c in ctrl {
             unsafe {
@@ -252,25 +262,28 @@ impl MjData {
     /// get one element by the index of the `xmat`, which is a series of
     /// flattened 3x3 rotation matrix for each body
     /// 
-    /// ```c
-    /// data->xmat (image):
-    /// 
-    /// [
-    ///     b0_xx, b0_xy, b0_xz, b0_yx, b0_yy, b0_yz, b0_zx, b0_zy, b0_zz,
-    /// 
-    ///     b1_xx, b1_xy, b1_xz, b1_yx, b1_yy, b1_yz, b1_zx, b1_zy, b1_zz,
-    /// 
-    ///     ...
-    /// 
-    ///     bN_xx, bN_xy, bN_xz, bN_yx, bN_yy, bN_yz, bN_zx, bN_zy, bN_zz
-    /// ] // where N := nbody - 1
-    /// ```
-    ///
-    /// SAFETY: `body_id` is a valid `ObjectId` of type `mjOBJ_BODY`
-    pub unsafe fn get_xmat(&self, body_id: ObjectId, axis: Axis3) -> f64 {
-        let offset = (*body_id) * 9 + axis as usize;
+    /// returns `None` if `body_id` is not an `ObjectId` of `mjOBJ_BODY`
+    pub fn get_xmat(&self, body_id: ObjectId, component: MatrixComponent) -> Option<f64> {
+        if body_id.type_ != ObjectType::mjOBJ_BODY {
+            return None;
+        }
+
+        // ```c
+        // data->xmat (image):
+        // 
+        // [
+        //     b0_xx, b0_xy, b0_xz, b0_yx, b0_yy, b0_yz, b0_zx, b0_zy, b0_zz,
+        // 
+        //     b1_xx, b1_xy, b1_xz, b1_yx, b1_yy, b1_yz, b1_zx, b1_zy, b1_zz,
+        // 
+        //     ...
+        // 
+        //     bN_xx, bN_xy, bN_xz, bN_yx, bN_yy, bN_yz, bN_zx, bN_zy, bN_zz
+        // ] // where N := nbody - 1
+        // ```
+        let offset = body_id.index * 9 + component as usize;
         // SAFETY: `offset` < corresponded model's `nbody * 9`
-        unsafe {self.mjdata.xmat.add(offset).read()}
+        Some(unsafe {self.mjdata.xmat.add(offset).read()})
     }
 
     /// get one element of the sensor data vector of the MjData by the index
