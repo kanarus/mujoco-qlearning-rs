@@ -25,18 +25,25 @@ impl Acrobot {
     fn horizontal(&self) -> [f64; 2] {
         ["upper_arm", "lower_arm"]
             .map(|name| self.model.object_id_of(mujoco::ObjectType::mjOBJ_BODY, name).unwrap())
-            .map(|id| self.data.get_xmat(id, mujoco::MatrixComponent::XZ).unwrap())// `id` is a body id
+            .map(|id| self.data.xmat(id).unwrap().xz)
     }
 
     /// Returns vertical (y) component of body frame z-axes
     fn vertical(&self) -> [f64; 2] {
         ["upper_arm", "lower_arm"]
             .map(|name| self.model.object_id_of(mujoco::ObjectType::mjOBJ_BODY, name).unwrap())
-            .map(|id| self.data.get_xmat(id, mujoco::MatrixComponent::ZZ).unwrap())// `id` is a body id
+            .map(|id| self.data.xmat(id).unwrap().zz)
     }
 
     fn distance_tip_target(&self) -> f64 {
-
+        let [tip, target] = ["tip", "target"]
+            .map(|name| self.model.object_id_of(mujoco::ObjectType::mjOBJ_SITE, name).unwrap())
+            .map(|id| self.data.site_xpos(id).unwrap());
+        f64::sqrt(
+            (tip.x - target.x).powi(2) +
+            (tip.y - target.y).powi(2) +
+            (tip.z - target.z).powi(2)
+        )
     }
 }
 

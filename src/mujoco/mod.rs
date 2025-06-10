@@ -199,14 +199,16 @@ impl MjModel {
     }
 }
 
-pub enum Axis {
-    X, Y, Z
+pub struct Vector {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 
-pub enum MatrixComponent {
-    XX, XY, XZ,
-    YX, YY, YZ,
-    ZX, ZY, ZZ,
+pub struct Matrix {
+    pub xx: f64, pub xy: f64, pub xz: f64,
+    pub yx: f64, pub yy: f64, pub yz: f64,
+    pub zx: f64, pub zy: f64, pub zz: f64,
 }
 
 pub struct MjData {
@@ -217,7 +219,83 @@ impl MjData {
     pub fn time(&self) -> f64 {
         self.mjdata.time
     }
+}
 
+impl MjData {
+    /// get one element by the index of the `xmat`, which is a series of
+    /// flattened 3x3 rotation matrix for each body
+    /// 
+    /// returns `None` if `body_id` is not an `ObjectId` of `mjOBJ_BODY`
+    pub fn xmat(&self, body_id: ObjectId) -> Option<Matrix> {
+        if body_id.type_ != ObjectType::mjOBJ_BODY {
+            return None;
+        }
+
+        // ```c
+        // data->xmat (image):
+        // 
+        // [
+        //     b0_xx, b0_xy, b0_xz, b0_yx, b0_yy, b0_yz, b0_zx, b0_zy, b0_zz,
+        // 
+        //     b1_xx, b1_xy, b1_xz, b1_yx, b1_yy, b1_yz, b1_zx, b1_zy, b1_zz,
+        // 
+        //     ...
+        // 
+        //     bN_xx, bN_xy, bN_xz, bN_yx, bN_yy, bN_yz, bN_zx, bN_zy, bN_zz
+        // ] // where N := nbody - 1
+        // ```
+        let offset = body_id.index * 9;
+        // SAFETY: `offset` < corresponded model's `nbody * 9`
+        macro_rules! read {
+            ($plus:expr) => {unsafe {self.mjdata.xmat.add(offset + $plus).read()}};
+        }
+        Some(Matrix {
+            xx: read!(0), xy: read!(1), xz: read!(2),
+            yx: read!(3), yy: read!(4), yz: read!(5),
+            zx: read!(6), zy: read!(7), zz: read!(8),
+        })
+    }
+
+    pub fn xpos(&self, body_id: ObjectId) -> Option<Vector> {
+        if body_id.type_ != ObjectType::mjOBJ_BODY {
+            return None;
+        }
+
+        // ```c
+        // data->xpos (image):
+        // 
+        // [
+        //     b0_xpos_x, b0_xpos_y, b0_xpos_z,
+        //     b1_xpos_x, b1_xpos_y, b1_xpos_z,
+        //     ...
+        //     bN_xpos_x, bN_xpos_y, bN_xpos_z
+        // ] // where N := nbody - 1
+        // ```
+        let offset = body_id.index * 3;
+        // SAFETY: `offset` < corresponded model's `nbody * 3`
+        Some(Vector {
+            x: unsafe {self.mjdata.xpos.add(offset).read()},
+            y: unsafe {self.mjdata.xpos.add(offset + 1).read()},
+            z: unsafe {self.mjdata.xpos.add(offset + 2).read()},
+        })
+    }
+
+    pub fn site_xpos(&self, site_id: ObjectId) -> Option<Vector> {
+        if site_id.type_ != ObjectType::mjOBJ_SITE {
+            return None;
+        }
+
+        // SAFETY: `offset` < corresponded model's `nsite * 3`
+        let offset = site_id.index * 3;
+        Some(Vector {
+            x: unsafe {self.mjdata.site_xpos.add(offset).read()},
+            y: unsafe {self.mjdata.site_xpos.add(offset + 1).read()},
+            z: unsafe {self.mjdata.site_xpos.add(offset + 2).read()},
+        })
+    }
+}
+
+impl MjData {
     /// sets the control signal for the actuators
     ///
     /// SAFETY: `ctrl` must have length equal to the model's `nu`
@@ -257,33 +335,6 @@ impl MjData {
     /// SAFETY: `index` < corresponded model's `nv`
     pub unsafe fn get_qpos(&self, index: usize) -> f64 {
         unsafe {self.mjdata.qpos.add(index).read()}
-    }
-
-    /// get one element by the index of the `xmat`, which is a series of
-    /// flattened 3x3 rotation matrix for each body
-    /// 
-    /// returns `None` if `body_id` is not an `ObjectId` of `mjOBJ_BODY`
-    pub fn get_xmat(&self, body_id: ObjectId, component: MatrixComponent) -> Option<f64> {
-        if body_id.type_ != ObjectType::mjOBJ_BODY {
-            return None;
-        }
-
-        // ```c
-        // data->xmat (image):
-        // 
-        // [
-        //     b0_xx, b0_xy, b0_xz, b0_yx, b0_yy, b0_yz, b0_zx, b0_zy, b0_zz,
-        // 
-        //     b1_xx, b1_xy, b1_xz, b1_yx, b1_yy, b1_yz, b1_zx, b1_zy, b1_zz,
-        // 
-        //     ...
-        // 
-        //     bN_xx, bN_xy, bN_xz, bN_yx, bN_yy, bN_yz, bN_zx, bN_zy, bN_zz
-        // ] // where N := nbody - 1
-        // ```
-        let offset = body_id.index * 9 + component as usize;
-        // SAFETY: `offset` < corresponded model's `nbody * 9`
-        Some(unsafe {self.mjdata.xmat.add(offset).read()})
     }
 
     /// get one element of the sensor data vector of the MjData by the index
