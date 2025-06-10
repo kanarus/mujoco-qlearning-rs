@@ -1,8 +1,8 @@
 use crate::mujoco::{self, MjModel, MjData};
 use std::ops::{Deref, DerefMut};
 
-pub trait Physics: Deref<Target = BasePhysics> + DerefMut<Target = BasePhysics> {
-    fn from_base(base: BasePhysics) -> Self;
+pub trait Physics: Deref<Target = PhysicsBase> + DerefMut<Target = PhysicsBase> {
+    fn from_base(base: PhysicsBase) -> Self;
 
     /// ```
     /// {
@@ -18,7 +18,7 @@ pub trait Physics: Deref<Target = BasePhysics> + DerefMut<Target = BasePhysics> 
     }
 }
 
-pub struct BasePhysics {
+pub struct PhysicsBase {
     pub model: MjModel,
     pub data: MjData,
 }
@@ -33,7 +33,7 @@ macro_rules! collect_property_elements {
             .collect()
     };
 }
-impl BasePhysics {
+impl PhysicsBase {
     pub fn foward(&mut self) {
         mujoco::foward(&self.model, &mut self.data);
     }
@@ -133,10 +133,10 @@ pub struct BoundedArraySpec {
     pub shape: [usize; 2],
 }
 
-pub trait State: Deref<Target = BaseState> + DerefMut<Target = BaseState> {
-    fn from_base(base: BaseState) -> Self;
+pub trait State: Deref<Target = StateBase> + DerefMut<Target = StateBase> {
+    fn from_base(base: StateBase) -> Self;
 }
-pub struct BaseState {
+pub struct StateBase {
     /// in `TimeStep`, this is `None` when `step_type` is `StepType::First`, i.e. at the start of a sequence
     pub reward: Option<f64>,
     pub discount: Option<f64>,
@@ -192,7 +192,7 @@ impl<S: State, T: Task> Environment<S, T> {
 
         TimeStep {
             step_type: StepType::First,
-            state: S::from_base(BaseState {
+            state: S::from_base(StateBase {
                 reward: None,
                 discount: None,
                 observation: self.task.get_observation(&self.physics),
@@ -219,7 +219,7 @@ impl<S: State, T: Task> Environment<S, T> {
                 self.reset_next_step = true;
                 TimeStep {
                     step_type: StepType::Last,
-                    state: S::from_base(BaseState {
+                    state: S::from_base(StateBase {
                         reward: Some(reward),
                         discount: Some(final_discount),
                         observation,
@@ -229,7 +229,7 @@ impl<S: State, T: Task> Environment<S, T> {
             None => {
                 TimeStep {
                     step_type: StepType::Mid,
-                    state: S::from_base(BaseState {
+                    state: S::from_base(StateBase {
                         reward: Some(reward),
                         discount: Some(1.0),
                         observation,

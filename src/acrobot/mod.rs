@@ -1,16 +1,15 @@
 use crate::mujoco;
-use crate::control::{BasePhysics, Physics, Task};
+use crate::control::{PhysicsBase, Physics, Task};
 
-struct Acrobot(BasePhysics);
+struct Acrobot(PhysicsBase);
 
 impl Physics for Acrobot {
-    fn from_base(base: BasePhysics) -> Self {
+    fn from_base(base: PhysicsBase) -> Self {
         Acrobot(base)
     }
 }
 impl std::ops::Deref for Acrobot {
-    type Target = BasePhysics;
-
+    type Target = PhysicsBase;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
