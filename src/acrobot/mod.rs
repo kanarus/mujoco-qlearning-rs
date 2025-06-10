@@ -4,7 +4,7 @@ use crate::control::{PhysicsBase, Physics, Task};
 struct Acrobot(PhysicsBase);
 
 impl Physics for Acrobot {
-    fn from_base(base: PhysicsBase) -> Self {
+    fn derive(base: PhysicsBase) -> Self {
         Acrobot(base)
     }
 }
