@@ -2,7 +2,7 @@ use crate::mujoco::{self, MjModel, MjData};
 use std::ops::{Deref, DerefMut};
 
 pub trait Physics: Deref<Target = BasePhysics> + DerefMut<Target = BasePhysics> {
-    fn new(base: BasePhysics) -> Self;
+    fn from_base(base: BasePhysics) -> Self;
 
     /// ```
     /// {
@@ -142,7 +142,7 @@ pub struct BoundedArraySpec {
 }
 
 pub trait State: Deref<Target = BaseState> + DerefMut<Target = BaseState> {
-    fn new(base: BaseState) -> Self;
+    fn from_base(base: BaseState) -> Self;
 }
 pub struct BaseState {
     /// in `TimeStep`, this is `None` when `step_type` is `StepType::First`, i.e. at the start of a sequence
@@ -200,7 +200,7 @@ impl<S: State, T: Task> Environment<S, T> {
 
         TimeStep {
             step_type: StepType::First,
-            state: S::new(BaseState {
+            state: S::from_base(BaseState {
                 reward: None,
                 discount: None,
                 observation: self.task.get_observation(&self.physics),
@@ -227,7 +227,7 @@ impl<S: State, T: Task> Environment<S, T> {
                 self.reset_next_step = true;
                 TimeStep {
                     step_type: StepType::Last,
-                    state: S::new(BaseState {
+                    state: S::from_base(BaseState {
                         reward: Some(reward),
                         discount: Some(final_discount),
                         observation,
@@ -237,7 +237,7 @@ impl<S: State, T: Task> Environment<S, T> {
             None => {
                 TimeStep {
                     step_type: StepType::Mid,
-                    state: S::new(BaseState {
+                    state: S::from_base(BaseState {
                         reward: Some(reward),
                         discount: Some(1.0),
                         observation,
