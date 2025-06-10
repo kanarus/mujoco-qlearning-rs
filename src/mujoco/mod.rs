@@ -114,8 +114,18 @@ mjmodel_siezs! {
     nbuffer:                    "number of bytes in buffer";
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct ObjectId(usize);
+impl std::ops::Deref for ObjectId {
+    type Target = usize;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 impl MjModel {
-    pub fn object_id_of(&self, objtype: ObjectType, name: &str) -> Option<usize> {
+    pub fn object_id_of(&self, objtype: ObjectType, name: &str) -> Option<ObjectId> {
         let c_name = std::ffi::CString::new(name).ok()?;
         let id = unsafe {
             bindgen::mj_name2id(
@@ -124,15 +134,15 @@ impl MjModel {
                 c_name.as_ptr()
             )
         };
-        (id >= 0).then_some(id as usize)
+        (id >= 0).then_some(ObjectId(id as usize))
     }
-    
-    pub fn object_name_of(&self, objtype: ObjectType, id: usize) -> Option<String> {
+
+    pub fn object_name_of(&self, objtype: ObjectType, id: ObjectId) -> Option<String> {
         let c_name_ptr = unsafe {
             bindgen::mj_id2name(
                 &self.mjmodel,
                 objtype as i32,
-                id as i32
+                id.0 as i32
             )
         };
         if c_name_ptr.is_null() {
@@ -209,30 +219,73 @@ impl MjData {
 
     /// get one of ctrl signals of the MjData by the index
     /// 
-    /// SAFETY: `index` < corresponded model's `nu` property
+    /// SAFETY: `index` < corresponded model's `nu`
     pub unsafe fn get_ctrl(&self, index: usize) -> f64 {
         unsafe {self.mjdata.ctrl.add(index).read()}
     }
 
     /// get one of actuators of the MjData by the index
     /// 
-    /// SAFETY: `index` < corresponded model's `na` property
+    /// SAFETY: `index` < corresponded model's `na`
     pub unsafe fn get_act(&self, index: usize) -> f64 {
         unsafe {self.mjdata.act.add(index).read()}
     }
 
     /// get one element of velocity-vector of the MjData by the index
     /// 
-    /// SAFETY: `index` < corresponded model's `nv` property
+    /// SAFETY: `index` < corresponded model's `nv`
     pub unsafe fn get_qvel(&self, index: usize) -> f64 {
         unsafe {self.mjdata.qvel.add(index).read()}
     }
 
     /// get one element of position-vector of the MjData by the index
     /// 
-    /// SAFETY: `index` < corresponded model's `nv` property
+    /// SAFETY: `index` < corresponded model's `nv`
     pub unsafe fn get_qpos(&self, index: usize) -> f64 {
         unsafe {self.mjdata.qpos.add(index).read()}
+    }
+
+    /// get one element by the index of the `xmat`, which is a series of
+    /// flattened 3x3 rotation matrix for each body
+    /// 
+    /// ```c
+    /// data->xmat (image):
+    /// 
+    /// [
+    ///     b0_xx, b0_xy, b0_xz, b0_yx, b0_yy, b0_yz, b0_zx, b0_zy, b0_zz,
+    /// 
+    ///     b1_xx, b1_xy, b1_xz, b1_yx, b1_yy, b1_yz, b1_zx, b1_zy, b1_zz,
+    /// 
+    ///     ...
+    /// 
+    ///     bN_xx, bN_xy, bN_xz, bN_yx, bN_yy, bN_yz, bN_zx, bN_zy, bN_zz
+    /// ] // where N := nbody - 1
+    /// ```
+    ///
+    /// SAFETY: `index` < corresponded model's `nbody * 9`
+    pub unsafe fn get_xmat(&self, index: usize) -> f64 {
+        unsafe {self.mjdata.xmat.add(index).read()}
+    }
+
+    /// get one element of the sensor data vector of the MjData by the index
+    ///
+    /// SAFETY: `index` < corresponded model's `nsensordata`
+    pub unsafe fn get_sensor_data(&self, index: usize) -> f64 {
+        unsafe {self.mjdata.sensordata.add(index).read()}
+    }
+
+    /// get one element of the plugin state vector of the MjData by the index
+    ///
+    /// SAFETY: `index` < corresponded model's `npluginstate`
+    pub unsafe fn get_plugin_state(&self, index: usize) -> f64 {
+        unsafe {self.mjdata.plugin_state.add(index).read()}
+    }
+
+    /// get one element of the user data vector of the MjData by the index
+    ///
+    /// SAFETY: `index` < corresponded model's `nuserdata`
+    pub unsafe fn get_user_data(&self, index: usize) -> f64 {
+        unsafe {self.mjdata.userdata.add(index).read()}
     }
 }
 

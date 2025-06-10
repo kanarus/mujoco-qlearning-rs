@@ -25,23 +25,15 @@ pub struct BasePhysics {
 
 macro_rules! collect_property_elements {
     ($physics:ident: $get_property:ident * $size:ident) => {
-        (0..$physics.model().$size())
+        (0..$physics.model.$size())
             .map(|i| unsafe {
                 // SAFETY: i < $size
-                $physics.data().$get_property(i)
+                $physics.data.$get_property(i)
             })
             .collect()
     };
 }
 impl BasePhysics {
-    pub fn model(&self) -> &MjModel {
-        &self.model
-    }
-
-    pub fn data(&self) -> &MjData {
-        &self.data
-    }
-
     pub fn foward(&mut self) {
         mujoco::foward(&self.model, &mut self.data);
     }
@@ -75,12 +67,12 @@ impl BasePhysics {
 
     /// elapsed time in seconds since the start of the physics
     pub fn time(&self) -> f64 {
-        self.data().time()
+        self.data.time()
     }
 
     /// current timestamp in seconds
     pub fn timestamp(&self) -> f64 {
-        self.model().opt().timestamp()
+        self.model.opt().timestamp()
     }
 
     /// resets the physics to its initial state
@@ -117,7 +109,7 @@ pub trait Task {
     fn after_step(&mut self, physics: &mut Self::Physics) {}
 
     fn action_spec(&self, physics: &Self::Physics) -> BoundedArraySpec {
-        let num_actions = physics.model().nu();
+        let num_actions = physics.model.nu();
         BoundedArraySpec { shape: [num_actions, 1] }
     }
     fn step_spec(&self, physics: &Self::Physics) -> BoundedArraySpec {

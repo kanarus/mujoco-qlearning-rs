@@ -1,3 +1,4 @@
+use crate::mujoco;
 use crate::control::{BasePhysics, Physics, Task};
 
 struct Acrobot(BasePhysics);
@@ -22,7 +23,28 @@ impl std::ops::DerefMut for Acrobot {
 
 impl Acrobot {
     /// Returns horizontal (x) component of body frame z-axes
-    fn horizontal(&self) 
+    fn horizontal(&self) -> [f64; 2] {
+        /// xx, xy, xz, yx, yy, yz, zx, zy, zz
+        ///         ---
+        ///  0,  1,  2, ...
+        const XZ: usize = 2;
+
+        ["upper_arm", "lower_arm"]
+            .map(|name| self.model.object_id_of(mujoco::ObjectType::mjOBJ_BODY, name).unwrap())
+            .map(|id| unsafe {self.data.get_xmat((*id) * 9 + XZ)})
+    }
+
+    /// Returns vertical (y) component of body frame z-axes
+    fn vertical(&self) -> [f64; 2] {
+        /// xx, xy, xz, yx, yy, yz, zx, zy, zz
+        ///                     ---
+        ///  0,  1,  2,  3,  4,  5, ...
+        const YZ: usize = 5;
+
+        ["upper_arm", "lower_arm"]
+            .map(|name| self.model.object_id_of(mujoco::ObjectType::mjOBJ_BODY, name).unwrap())
+            .map(|id| unsafe {self.data.get_xmat((*id) * 9 + YZ)})
+    }
 }
 
 struct Balance {
