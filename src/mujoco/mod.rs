@@ -2,6 +2,7 @@ mod bindgen;
 
 pub use bindgen::{
     mjtDisableBit as DisableBit,
+    mjtObj as ObjectType,
 };
 
 pub struct MjModel {
@@ -20,7 +21,37 @@ macro_rules! model_n {
     };
 }
 model_n! {
-    nu, na, nv, nq
+    nu, na, nv, nq,
+    nbody, njnt, nsite, ncam, nmesh, ngeom, nlight, nkey, nplugin,
+    nuser_body, nuser_jnt, nuser_site, nuser_cam, nuser_geom, nuser_sensor, nuser_actuator,
+}
+
+impl MjModel {
+    pub fn object_id_of(&self, objtype: ObjectType, name: &str) -> Option<usize> {
+        let c_name = std::ffi::CString::new(name).ok()?;
+        let id = unsafe {
+            bindgen::mj_name2id(
+                &self.mjmodel,
+                objtype as i32,
+                c_name.as_ptr()
+            )
+        };
+        (id >= 0).then_some(id as usize)
+    }
+    pub fn object_name_of(&self, objtype: ObjectType, id: usize) -> Option<String> {
+        let c_name_ptr = unsafe {
+            bindgen::mj_id2name(
+                &self.mjmodel,
+                objtype as i32,
+                id as i32
+            )
+        };
+        if c_name_ptr.is_null() {
+            None
+        } else {
+            unsafe {std::ffi::CStr::from_ptr(c_name_ptr).to_str().ok().map(str::to_string)}
+        }
+    }
 }
 
 impl MjModel {
