@@ -222,8 +222,7 @@ impl MjData {
 }
 
 impl MjData {
-    /// get one element by the index of the `xmat`, which is a series of
-    /// flattened 3x3 rotation matrix for each body
+    /// get rotation matrix of the body by its `ObjectId`
     /// 
     /// returns `None` if `body_id` is not an `ObjectId` of `mjOBJ_BODY`
     pub fn xmat(&self, body_id: ObjectId) -> Option<Matrix> {
@@ -256,6 +255,9 @@ impl MjData {
         })
     }
 
+    /// get position of the body by its `ObjectId`
+    ///
+    /// returns `None` if `body_id` is not an `ObjectId` of `mjOBJ_BODY`
     pub fn xpos(&self, body_id: ObjectId) -> Option<Vector> {
         if body_id.type_ != ObjectType::mjOBJ_BODY {
             return None;
@@ -280,6 +282,9 @@ impl MjData {
         })
     }
 
+    /// get position of the site by its `ObjectId`
+    ///
+    /// returns `None` if `site_id` is not an `ObjectId` of `mjOBJ_SITE`
     pub fn site_xpos(&self, site_id: ObjectId) -> Option<Vector> {
         if site_id.type_ != ObjectType::mjOBJ_SITE {
             return None;
