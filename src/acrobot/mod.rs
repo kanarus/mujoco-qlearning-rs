@@ -26,7 +26,7 @@ impl Acrobot {
         ["upper_arm", "lower_arm"]
             .map(|name| self.model.object_id_of(mujoco::ObjectType::mjOBJ_BODY, name).unwrap())
             .map(|id| unsafe {self.data.get_xmat(id, mujoco::Axis3::XZ)})
-            // SAFETY: `id` is a valid body ID
+            /* SAFETY: each `id` is a valid body ID */
     }
 
     /// Returns vertical (y) component of body frame z-axes
@@ -34,7 +34,7 @@ impl Acrobot {
         ["upper_arm", "lower_arm"]
             .map(|name| self.model.object_id_of(mujoco::ObjectType::mjOBJ_BODY, name).unwrap())
             .map(|id| unsafe {self.data.get_xmat(id, mujoco::Axis3::YZ)})
-            // SAFETY: `id` is a valid body ID
+            /* SAFETY: each `id` is a valid body ID */
     }
 }
 
