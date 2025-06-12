@@ -370,6 +370,9 @@ impl MjData {
     pub unsafe fn get_qpos(&self, index: usize) -> f64 {
         unsafe {self.mjdata.qpos.add(index).read()}
     }
+    pub unsafe fn set_qpos(&mut self, index: usize, value: f64) {
+        unsafe {self.mjdata.qpos.add(index).write(value)};
+    }
 
     /// get one element of the sensor data vector of the MjData by the index
     ///

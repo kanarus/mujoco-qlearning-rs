@@ -53,6 +53,28 @@ impl PhysicsBase {
         mujoco::foward(&self.model, &mut self.data);
     }
 
+    pub fn set_position(&mut self, id: ObjectId, position_data: impl IntoIterator<Item = f64>) -> Result<(), PhysicsError> {
+        let position_data: Vec<f64> = position_data.into_iter().collect();
+
+        let qpos_index = self.model.qpos_index(id).unwrap();
+        let qpos_size = self.model.qpos_size(id).unwrap();
+
+        if position_data.len() != qpos_size {
+            return Err(PhysicsError::SizeNotMatching {
+                expected: qpos_size,
+                actual: position_data.len(),
+            });
+        }
+
+        for (i, &value) in position_data.iter().enumerate() {
+            unsafe {
+                // SAFETY: i < qpos_size <= nq
+                self.data.set_qpos(qpos_index + i, value);
+            }
+        }
+        Ok(())
+    }
+
     /// sets the control signal for the actuators
     pub fn set_control(&mut self, control: impl IntoIterator<Item = f64>) -> Result<(), PhysicsError> {
         let control: Vec<f64> = control.into_iter().collect();
@@ -234,7 +256,10 @@ impl<S: State, T: Task> Environment<S, T> {
     pub fn reset(&mut self) -> TimeStep<S> {
         self.reset_next_step = false;
         self.step_count = 0;
-        self.physics.with_reset(|physics| self.task.initialize_episode(physics));
+        self.physics.with_reset(|physics| {
+            self.task.initialize_episode(physics);
+            self.task.after_step(physics);
+        });
 
         TimeStep {
             step_type: StepType::First,

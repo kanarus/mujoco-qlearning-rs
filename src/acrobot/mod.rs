@@ -1,5 +1,5 @@
 use crate::mujoco;
-use crate::control::{PhysicsBase, Physics, Task};
+use crate::control::{Action, Physics, PhysicsBase, Task};
 
 struct Acrobot(PhysicsBase);
 
@@ -76,6 +76,62 @@ struct Balance {
     do_swing: bool,
 }
 
-// impl Task for Balance {
-//     
-// }
+
+impl Balance {
+    pub fn new() -> Self {
+        Balance {
+            sparse: false,
+            do_swing: true,
+        }
+    }
+
+    pub fn sparse(mut self, sparse: bool) -> Self {
+        self.sparse = sparse;
+        self
+    }
+    
+    pub fn do_swing(mut self, do_swing: bool) -> Self {
+        self.do_swing = do_swing;
+        self
+    }
+}
+
+struct BalanceAction;
+
+impl Action for BalanceAction {
+    type Physics = Acrobot;
+}
+
+impl Task for Balance {
+    type Physics = Acrobot;
+
+    type Action = BalanceAction;
+
+    fn initialize_episode(&mut self, physycs: &mut Self::Physics) {
+        use std::f64::consts::PI;
+        use rand::Rng;
+
+        let (elbow_id, shoulder_id) = (
+            physycs.model.object_id_of(mujoco::ObjectType::mjOBJ_JOINT, "elbow").unwrap(),
+            physycs.model.object_id_of(mujoco::ObjectType::mjOBJ_JOINT, "shoulder").unwrap(),
+        );
+        if self.do_swing {
+            physycs.set_position(elbow_id, [rand::rng().random_range(-(PI/2.)..(PI/2.))]).unwrap();
+        } else {
+            physycs.set_position(elbow_id, [rand::rng().random_range(-(PI/10.)..(PI/10.))]).unwrap();
+        }
+        physycs.set_position(shoulder_id, [0.0]).unwrap();
+    }
+
+    fn before_step(&mut self, _action: Self::Action, _physics: &mut Self::Physics) {
+        // do nothing
+    }
+
+    fn get_observation(&self, physics: &Self::Physics) -> Vec<f64> {
+        todo!()
+    }
+
+    fn get_reward(&self, physics: &Self::Physics) -> f64 {
+        todo!()
+    }
+}
