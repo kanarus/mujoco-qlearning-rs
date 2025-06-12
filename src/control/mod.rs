@@ -1,4 +1,4 @@
-use crate::mujoco::{self, MjModel, MjData};
+use crate::mujoco::{self, MjData, MjModel, ObjectId};
 use std::ops::{Deref, DerefMut};
 
 pub trait Physics: Deref<Target = PhysicsBase> + DerefMut<Target = PhysicsBase> {
@@ -80,6 +80,20 @@ impl PhysicsBase {
 
     pub fn position(&self) -> Vec<f64> {
         collect_property_elements!(self: get_qpos * nq)
+    }
+
+    /// returns the position of the joint with the given name.
+    /// 
+    /// the length of the returned vector is equal to the size of the position data of the joint.
+    pub fn position_of(&self, id: ObjectId) -> Vec<f64> {
+        let qpos_index = self.model.qpos_index(id).unwrap();
+        let qpos_size = self.model.qpos_size(id).unwrap();
+        (0..qpos_size)
+            .map(|i| unsafe {
+                // SAFETY: i < qpos_size <= nq
+                self.data.get_qpos(qpos_index + i)
+            })
+            .collect::<Vec<f64>>()
     }
 
     /// updates the state with repeatetion of `n` steps.

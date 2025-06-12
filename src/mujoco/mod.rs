@@ -119,6 +119,11 @@ pub struct ObjectId {
     type_: ObjectType,
     index: usize,
 }
+impl PartialOrd for ObjectId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        (self.type_ == other.type_).then_some(self.index.cmp(&other.index))
+    }
+}
 
 impl MjModel {
     pub fn object_id_of(&self, objtype: ObjectType, name: &str) -> Option<ObjectId> {
@@ -164,6 +169,30 @@ impl MjModel {
         self.mjmodel.opt.disableflags = new_bitmask;
         f(self);
         self.mjmodel.opt.disableflags = old_bitmask;
+    }
+}
+
+impl MjModel {
+    pub fn qpos_index(&self, id: ObjectId) -> Option<usize> {
+        match id.type_ {
+            ObjectType::mjOBJ_JOINT => Some(unsafe {self.mjmodel.jnt_qposadr.add(id.index).read() as usize}),
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn qpos_size(&self, id: ObjectId) -> Option<usize> {
+        if id.index < self.njnt() - 1 {
+            let qpos_index = self.qpos_index(id)?;
+            let next_qpos_index = self.qpos_index(ObjectId {
+                type_: id.type_,
+                index: id.index + 1,
+            })?;
+            Some(next_qpos_index - qpos_index)
+        } else {
+            // last joint
+            let qpos_index = self.qpos_index(id)?;
+            Some(self.nq() - qpos_index)
+        }
     }
 }
 

@@ -45,6 +45,30 @@ impl Acrobot {
             (tip.z - target.z).powi(2)
         )
     }
+
+    fn orientations(&self) -> Orientations {
+        let [elbow_rad, shoulder_rad] = ["elbow", "shoulder"]
+            .map(|name| self.model.object_id_of(mujoco::ObjectType::mjOBJ_JOINT, name).unwrap())
+            .map(|id| self.position_of(id))
+            .map(|mut pos_vec| {
+                assert_eq!(pos_vec.len(), 1, "Expected a single position value for joint");
+                pos_vec.pop().unwrap()
+            });
+        Orientations {
+            elbow: Orientation { sin: elbow_rad.sin(), cos: elbow_rad.cos() },
+            shoulder: Orientation { sin: shoulder_rad.sin(), cos: shoulder_rad.cos() },
+        }
+    }
+}
+
+pub struct Orientations {
+    pub elbow: Orientation,
+    pub shoulder: Orientation,
+}
+
+pub struct Orientation {
+    pub sin: f64,
+    pub cos: f64,
 }
 
 struct Balance {
