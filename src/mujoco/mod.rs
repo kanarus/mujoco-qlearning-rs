@@ -173,6 +173,28 @@ impl MjModel {
 }
 
 impl MjModel {
+    pub fn qvel_index(&self, id: ObjectId) -> Option<usize> {
+        match id.type_ {
+            ObjectType::mjOBJ_BODY => todo!(),
+            _ => unimplemented!(),
+        }
+    }
+
+    pub fn qvel_size(&self, id: ObjectId) -> Option<usize> {
+        if id.index < self.njnt() - 1 {
+            let qvel_index = self.qvel_index(id)?;
+            let next_qvel_index = self.qvel_index(ObjectId {
+                type_: id.type_,
+                index: id.index + 1,
+            })?;
+            Some(next_qvel_index - qvel_index)
+        } else {
+            // last one
+            let qvel_index = self.qvel_index(id)?;
+            Some(self.nv() - qvel_index)
+        }
+    }
+
     pub fn qpos_index(&self, id: ObjectId) -> Option<usize> {
         match id.type_ {
             ObjectType::mjOBJ_JOINT => Some(unsafe {self.mjmodel.jnt_qposadr.add(id.index).read() as usize}),
@@ -189,7 +211,7 @@ impl MjModel {
             })?;
             Some(next_qpos_index - qpos_index)
         } else {
-            // last joint
+            // last one
             let qpos_index = self.qpos_index(id)?;
             Some(self.nq() - qpos_index)
         }

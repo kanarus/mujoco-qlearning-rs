@@ -104,7 +104,7 @@ impl Action for BalanceAction {
 
 struct BalanceObservation {
     orientations: Orientations,
-    velocity: mujoco::Vector,
+    velocity: Vec<f64>,
 }
 
 impl Task for Balance {
@@ -135,8 +135,10 @@ impl Task for Balance {
     }
 
     fn get_observation(&self, physics: &Self::Physics) -> Self::Observation {
-
-        todo!()
+        BalanceObservation {
+            orientations: physics.orientations(),
+            velocity: physics.velocity(),
+        }
     }
 
     fn get_reward(&self, physics: &Self::Physics) -> f64 {

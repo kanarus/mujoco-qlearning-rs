@@ -100,6 +100,17 @@ impl PhysicsBase {
         collect_property_elements!(self: get_qvel * nv)
     }
 
+    pub fn velocity_of(&self, id: ObjectId) -> Vec<f64> {
+        let qvel_index = self.model.qvel_index(id).unwrap();
+        let qvel_size = self.model.qvel_size(id).unwrap();
+        (0..qvel_size)
+            .map(|i| unsafe {
+                // SAFETY: i < qvel_size <= nv
+                self.data.get_qvel(qvel_index + i)
+            })
+            .collect::<Vec<f64>>()
+    }
+
     pub fn position(&self) -> Vec<f64> {
         collect_property_elements!(self: get_qpos * nq)
     }
@@ -359,3 +370,4 @@ impl<O, S: State<O>> TimeStep<O, S> {
         &self.state
     }
 }
+
