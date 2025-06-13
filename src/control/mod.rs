@@ -167,6 +167,7 @@ pub trait Action {
 pub trait Task {
     type Physics: Physics;
     type Action: Action<Physics = Self::Physics>;
+    type Observation;
 
     /// sets the state of the environment at the beginning of each episode
     fn initialize_episode(&mut self, physycs: &mut Self::Physics);
@@ -185,7 +186,7 @@ pub trait Task {
     }
 
     /// returns an observation of the current state
-    fn get_observation(&self, physics: &Self::Physics) -> Vec<f64>;
+    fn get_observation(&self, physics: &Self::Physics) -> Self::Observation;
     /// returns a reward for the current state
     fn get_reward(&self, physics: &Self::Physics) -> f64;
     /// returns a final discount if the episode should end, otherwise `None`
@@ -201,18 +202,17 @@ pub struct BoundedArraySpec {
     pub shape: [usize; 2],
 }
 
-pub trait State: Deref<Target = StateBase> + DerefMut<Target = StateBase> {
-    fn derive(base: StateBase) -> Self;
+pub trait State<O>: Deref<Target = StateBase<O>> + DerefMut<Target = StateBase<O>> {
+    fn derive(base: StateBase<O>) -> Self;
 }
-pub struct StateBase {
+pub struct StateBase<O> {
     /// in `TimeStep`, this is `None` when `step_type` is `StepType::First`, i.e. at the start of a sequence
     pub reward: Option<f64>,
     pub discount: Option<f64>,
-    /// in `TimeStep`, this is `None` when `step_type` is `StepType::First`, i.e. at the start of a sequence
-    pub observation: Vec<f64>,
+    pub observation: O,
 }
 
-pub struct Environment<S: State, T: Task> {
+pub struct Environment<T: Task, S: State<T::Observation>> {
     __state__: std::marker::PhantomData<S>,
     physics: T::Physics,
     task: T,
@@ -221,7 +221,7 @@ pub struct Environment<S: State, T: Task> {
     reset_next_step: bool,
 }
 
-impl<S: State, T: Task> Environment<S, T> {
+impl<T: Task, S: State<T::Observation>> Environment<T, S> {
     pub fn new(physics: T::Physics, task: T) -> Self {
         Self::new_with_control_timestamp(1., physics, task)
     }
@@ -238,7 +238,7 @@ impl<S: State, T: Task> Environment<S, T> {
     }
 }
 
-impl<S: State, T: Task> Environment<S, T> {
+impl<T: Task, S: State<T::Observation>> Environment<T, S> {
     pub fn physics(&self) -> &T::Physics {
         &self.physics
     }
@@ -252,8 +252,8 @@ impl<S: State, T: Task> Environment<S, T> {
     }
 }
 
-impl<S: State, T: Task> Environment<S, T> {
-    pub fn reset(&mut self) -> TimeStep<S> {
+impl<T: Task, S: State<T::Observation>> Environment<T, S> {
+    pub fn reset(&mut self) -> TimeStep<T::Observation, S> {
         self.reset_next_step = false;
         self.step_count = 0;
         self.physics.with_reset(|physics| {
@@ -262,6 +262,7 @@ impl<S: State, T: Task> Environment<S, T> {
         });
 
         TimeStep {
+            __observation__: std::marker::PhantomData,
             step_type: StepType::First,
             state: S::derive(StateBase {
                 reward: None,
@@ -271,7 +272,7 @@ impl<S: State, T: Task> Environment<S, T> {
         }
     }
 
-    pub fn step(&mut self, action: T::Action) -> TimeStep<S> {
+    pub fn step(&mut self, action: T::Action) -> TimeStep<T::Observation, S> {
         if self.reset_next_step {
             return self.reset();
         }
@@ -289,6 +290,7 @@ impl<S: State, T: Task> Environment<S, T> {
             Some(final_discount) => {
                 self.reset_next_step = true;
                 TimeStep {
+                    __observation__: std::marker::PhantomData,
                     step_type: StepType::Last,
                     state: S::derive(StateBase {
                         reward: Some(reward),
@@ -299,6 +301,7 @@ impl<S: State, T: Task> Environment<S, T> {
             }
             None => {
                 TimeStep {
+                    __observation__: std::marker::PhantomData,
                     step_type: StepType::Mid,
                     state: S::derive(StateBase {
                         reward: Some(reward),
@@ -331,7 +334,8 @@ fn compute_n_steps(
     rounded_div as usize
 }
 
-pub struct TimeStep<S: State> {
+pub struct TimeStep<O, S: State<O>> {
+    __observation__: std::marker::PhantomData<O>,
     pub step_type: StepType,
     pub state: S,
 }
@@ -340,7 +344,7 @@ pub enum StepType {
     Mid,
     Last,
 }
-impl<S: State> TimeStep<S> {
+impl<O, S: State<O>> TimeStep<O, S> {
     fn is_first(&self) -> bool {
         matches!(self.step_type, StepType::First)
     }

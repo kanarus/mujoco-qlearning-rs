@@ -102,10 +102,17 @@ impl Action for BalanceAction {
     type Physics = Acrobot;
 }
 
+struct BalanceObservation {
+    orientations: Orientations,
+    velocity: mujoco::Vector,
+}
+
 impl Task for Balance {
     type Physics = Acrobot;
 
     type Action = BalanceAction;
+
+    type Observation = BalanceObservation;
 
     fn initialize_episode(&mut self, physycs: &mut Self::Physics) {
         use std::f64::consts::PI;
@@ -127,7 +134,8 @@ impl Task for Balance {
         // do nothing
     }
 
-    fn get_observation(&self, physics: &Self::Physics) -> Vec<f64> {
+    fn get_observation(&self, physics: &Self::Physics) -> Self::Observation {
+
         todo!()
     }
 
